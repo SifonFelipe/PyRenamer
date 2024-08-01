@@ -1,11 +1,24 @@
 import os
 from tqdm import tqdm
+import magic #to detect the files format
 
 PYTHON_IGNORE = True #if you want to modify .py files, set this to False
 extensions_to_ignore = [ # add every file extension you want to ignore
     #'.pdf',
     #'.jpeg',
 ]
+
+def get_extension(file_path): #if the file doesnt have the extension, this detects it automatically
+    mime = magic.Magic(mime=True)
+    file_type = mime.from_file(file_path)
+    mime_to_extension = {
+        'image/jpeg': '.jpg',   # JPEG images
+        'image/jpg': '.jpg',    # Alternative MIME type for JPEG images
+        'image/png': '.png',    # PNG images
+        'image/webp': '.webp',  # WebP images
+    }
+
+    return mime_to_extension[file_type]
 
 def is_file(directory, filename):
     """
@@ -26,8 +39,18 @@ def is_file(directory, filename):
 
 def replace_file(directory, old_filename, new_filename): #replaces the files
     old_path = os.path.join(directory, old_filename)
-    _, file_extension = os.path.splitext(old_filename) # gets the extension of the file to add it to the name, because the file would lose the .
-    new_filename += file_extension # adding the extension to the name
+    filename, ext = os.path.splitext(old_filename)
+
+    """
+    Get the extension if it doesnt have it and adds it to the file name
+    """
+
+    if ext != '':
+        new_filename = new_filename + ext
+    else:
+        ext = get_extension(old_path) # gets the extension
+        new_filename = new_filename + ext
+
     new_path = os.path.join(directory, new_filename)
     os.rename(old_path, new_path)
 
@@ -48,7 +71,7 @@ def rename_files(directory, prefix):
     else:
         type_pf = int() # type int for prefixs nulls
 
-    num_sort = [] #list of the files with prefixs, only numbers to be able to sort
+    preprefixed = {} # changed to a dict to keep the extensions
     secondary = [] #list of the files who cannot be overwritten
 
     for filename in files: #check for prefixed files
@@ -58,8 +81,9 @@ def rename_files(directory, prefix):
                 splitted_filename = filename.split('_')
                 if len(splitted_filename) == 2: #fake prefix (prefix_asd_31)
                     try:
-                        number_prefix = int(splitted_filename[-1]) #to int because it could be prefix_a
-                        num_sort.append(number_prefix)
+                        filename_temp, ext = os.path.splitext(splitted_filename[-1]) # splits the extension from the file to int the name
+                        number_prefix = int(filename_temp) #to int because it could be prefix_a
+                        preprefixed[number_prefix] = ext
                     except:
                         secondary.append(filename)
                 else:
@@ -74,9 +98,11 @@ def rename_files(directory, prefix):
                 secondary.append(filename)
 
 
-    num_sort = sorted(num_sort)
+    num_sort = sorted(preprefixed)
+
     for number_of_file in num_sort:
-        filename = prefix + str(number_of_file) #num_sort has the names of the files who have the prefix given, so i can get the name like this
+        filename = prefix + str(number_of_file) + preprefixed[number_of_file]  #num_sort has the names of the files who have the prefix given, so i can get the name like this
+        # if the file has the extension, it won't need to be added later
         new_filename = prefix + str(file_index)
         replace_file(directory, filename, new_filename)
         file_index += 1
